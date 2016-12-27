@@ -117,7 +117,7 @@ from datetime import datetime
 
 #wr=open('output.csv','w')
 timestamp=datetime.now()
-path_to_chromedriver = r"C:\Python27\selenium\webdriver\chromedriver.exe"
+path_to_chromedriver = r"chromedriver.exe"
 
 
 #====================================
@@ -156,15 +156,17 @@ def mainExtract(url):
     browser.get(url)
     time.sleep(4)         
     daterow=False
+    skiplast=True
 
     try:
         table = browser.find_element_by_class_name('schedule')
         trs = table.find_elements_by_tag_name("tr")
     except:
-        print "Cant Access Site"
+        print "\nCant Access Site\n"
         log.write("Cant Access Site - "+str(datetime.now()))
-        browswer.close()
-        sys.exit(0)
+        browser.close()
+        raise
+
 
     for i in range(len(trs)):  
         trClass=''
@@ -178,6 +180,7 @@ def mainExtract(url):
             daterow=True
             data = trs[i].find_elements_by_tag_name("span")
             date = data[1].text
+            print "\n===========\n"
             print date
 
         else:
@@ -192,44 +195,57 @@ def mainExtract(url):
             list=[]
             list.append(date)
 
-            print tds[0].text
+            rowtext=tds[0].text
 
-            for id,td in enumerate(tds):
-                #DB
-                #Date,Time,Date_Time_Key,Num_Spots,Total_Spots,Class,Teacher,Location,Status,Weather
-                #Site Table
-                #Time    Availability 	CLASS	INSTRUCTOR	LOCATION
-                line=td.text
-                print line
+            if rowtext!="":
+                print rowtext
+
+                for id,td in enumerate(tds):
+                    #DB
+                    #Date,Time,Date_Time_Key,Num_Spots,Total_Spots,Class,Teacher,Location,Status,Weather
+                    #Site Table
+                    #Time    Availability 	CLASS	INSTRUCTOR	LOCATION
+                    line=td.text
+                    print line
                 
-                if id==1:
-                    if "SIGN" in line:
-                        #sign up 6 of 25
-                        if "aitlist" in line:
-                            list.append("'full'")
-                            list.append("''")                    
+                    if id==1:
+                        if "SIGN" in line:
+                            #sign up 6 of 25
+                            if "aitlist" in line:
+                                list.append("'full'")
+                                list.append("''")                    
+                            else:
+                                try:
+                                    line = line.split(" ")
+                                    list.append(line[2])
+                                    list.append(line[-2])
+                                except:
+                                    print "Number of spots not printed \n"
+                                    log.write("Number of spots not printed - "+ url)
+                                    raise
                         else:
-                            line = line.split(" ")
-                            list.append(line[2])
-                            list.append(line[-2])
-                    else:
-                        #check if canceled
-                        list.append("''")
-                        list.append("''")
+                            #check if canceled
+                            list.append("''")
+                            list.append("''")
                 
-                else:
-                    list.append("'"+line+"'")
+                    else:
+                        list.append("'"+line+"'")
 
-                if id==0: #second colum
-                    list=createDateID(list)
+                    if id==0: #second colum
+                        list=createDateID(list)
 
-            list.append("'"+status+"'")
-            #list.append(timestamp.strftime('%b %d %Y %I:%M'))
+                if id==3: #no Location:
+                    list.append("''")
+
+                list.append("'"+status+"'")
+                #list.append(timestamp.strftime('%b %d %Y %I:%M'))
         
-            validateAndInsert(list)
+                validateAndInsert(list)
                         
-            #wr.write(",".join(list))
-            #wr.write("\n")
+                #wr.write(",".join(list))
+                #wr.write("\n
+            else:
+                print "SkipRow"
 
         #except:
         #    pass
@@ -251,6 +267,9 @@ urlfile.next() #header
 for l in urlfile:
     l=l.split(",")
     url=l[0]
+    print "\n=================\n"
+    print l[1]
+    print "\n=================\n"
     mainExtract(url)
 
 conn.commit()
